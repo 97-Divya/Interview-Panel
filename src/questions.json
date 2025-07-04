@@ -1,0 +1,23 @@
+[
+  { "techStack": "React", "question": "What is JSX in React?" },
+  { "techStack": "React", "question": "What are props in React?" },
+  { "techStack": "React", "question": "What is a component?" },
+  { "techStack": "React", "question": "What is useState?" },
+  { "techStack": "React", "question": "What is useEffect?" },
+  { "techStack": "React", "question": "What is the Virtual DOM?" },
+  { "techStack": "React", "question": "What is conditional rendering?" },
+  { "techStack": "React", "question": "What are controlled components?" },
+  { "techStack": "React", "question": "What is a key in React lists?" },
+  { "techStack": "React", "question": "What is React Router?" },
+
+  { "techStack": "Node.js", "question": "What is Node.js?" },
+  { "techStack": "Node.js", "question": "What is npm?" },
+  { "techStack": "Node.js", "question": "What is Express.js?" },
+  { "techStack": "Node.js", "question": "What is middleware in Express?" },
+  { "techStack": "Node.js", "question": "What is the use of require()?" },
+  { "techStack": "Node.js", "question": "What is a callback function?" },
+  { "techStack": "Node.js", "question": "What is an event loop?" },
+  { "techStack": "Node.js", "question": "What is async/await?" },
+  { "techStack": "Node.js", "question": "What is a REST API?" },
+  { "techStack": "Node.js", "question": "What is package.json?" }
+]
