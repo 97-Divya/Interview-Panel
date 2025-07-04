@@ -1,5 +1,7 @@
 // src/components/InterviewPanel.jsx
 import React, { useState, useRef, useEffect } from "react";
+import * as faceLandmarksDetection from "@tensorflow-models/face-landmarks-detection";
+import * as tf from "@tensorflow/tfjs";
 import questionsData from "../questions.json";
 import "../index.css";
 
@@ -12,23 +14,36 @@ const InterviewPanel = () => {
   const [transcript, setTranscript] = useState("");
   const [answers, setAnswers] = useState([]);
   const [isStackLocked, setIsStackLocked] = useState(false);
+  const [gazeOff, setGazeOff] = useState(false);
 
   const videoRef = useRef(null);
   const recognitionRef = useRef(null);
 
+  // ✅ Setup camera and FaceMesh
   useEffect(() => {
-    const startCamera = async () => {
+    let model;
+    const setupCameraAndModel = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
+          await new Promise((resolve) => (videoRef.current.onloadedmetadata = resolve));
         }
+
+        await tf.setBackend("webgl");
+        await tf.ready();
+
+        model = await faceLandmarksDetection.load(
+          faceLandmarksDetection.SupportedPackages.mediapipeFacemesh
+        );
+        detectGaze(model);
       } catch (err) {
-        console.error("Camera error:", err);
+        console.error("Camera/model error:", err);
       }
     };
 
-    startCamera();
+    setupCameraAndModel();
+
     return () => {
       if (videoRef.current?.srcObject) {
         videoRef.current.srcObject.getTracks().forEach((track) => track.stop());
@@ -36,6 +51,38 @@ const InterviewPanel = () => {
     };
   }, []);
 
+  // ✅ Gaze detection
+const detectGaze = async (model) => {
+  const detect = async () => {
+    if (videoRef.current?.readyState === 4) {
+      const predictions = await model.estimateFaces({ input: videoRef.current });
+
+      if (predictions.length > 0 && predictions[0].keypoints?.length > 386) {
+        const keypoints = predictions[0].keypoints;
+
+        const leftEye = keypoints[159];
+        const rightEye = keypoints[386];
+
+        const eyeDelta = Math.abs(leftEye.x - rightEye.x);
+
+        if (eyeDelta < 40) {
+          setGazeOff(true); // might be looking away
+        } else {
+          setGazeOff(false); // looking at screen
+        }
+      } else {
+        // Handle face not detected
+        setGazeOff(true);
+      }
+    }
+
+    requestAnimationFrame(detect);
+  };
+
+  detect();
+};
+
+  // ✅ Handle tech stack change
   const handleTechStack = (e) => {
     const selected = e.target.value;
     setTechStack(selected);
@@ -49,6 +96,7 @@ const InterviewPanel = () => {
     setIsStackLocked(true);
   };
 
+  // ✅ Start speech recording
   const startRecording = () => {
     if (!("webkitSpeechRecognition" in window)) {
       alert("Speech recognition not supported.");
@@ -88,11 +136,10 @@ const InterviewPanel = () => {
 
   const handleNext = () => {
     if (transcript.trim() !== "") {
-      const entry = {
-        question: questions[currentIndex].question,
-        userAnswer: transcript,
-      };
-      setAnswers((prev) => [...prev, entry]);
+      setAnswers((prev) => [
+        ...prev,
+        { question: questions[currentIndex].question, userAnswer: transcript },
+      ]);
     }
 
     setTranscript("");
@@ -112,7 +159,7 @@ const InterviewPanel = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ techStack, answers }),
       });
-      alert(res.ok ? "Answers submitted!" : "Failed to submit answers.");
+      alert(res.ok ? "Answers submitted!" : "Failed to submit.");
     } catch (err) {
       console.error(err);
       alert("Server error");
@@ -121,7 +168,15 @@ const InterviewPanel = () => {
 
   return (
     <div className="panel-container">
-      <video ref={videoRef} autoPlay muted playsInline className="video-feed" />
+      {/* ✅ Webcam */}
+      <video
+        ref={videoRef}
+        autoPlay
+        muted
+        playsInline
+        className="video-feed"
+        style={{ border: gazeOff ? "4px solid red" : "4px solid #2196F3" }}
+      />
 
       {!interviewStarted ? (
         <div className="start-screen">
@@ -173,10 +228,13 @@ const InterviewPanel = () => {
                     <button onClick={stopRecording} className="panel-button warning">
                       ✅ Finish Recording
                     </button>
+                    <button onClick={restartRecording} className="panel-button restart">
+                      🔁 Restart Recording
+                    </button>
                   </>
                 )}
 
-                {recordingState === "finished" && (
+                {recordingState === "finished" && transcript && (
                   <>
                     <p className="answer-preview">
                       <strong>Your Answer:</strong> {transcript}
@@ -192,6 +250,10 @@ const InterviewPanel = () => {
                       {currentIndex < questions.length - 1 ? "Next" : "Submit Answers"}
                     </button>
                   </>
+                )}
+
+                {gazeOff && (
+                  <p className="warning-text">⚠️ Please focus on the screen.</p>
                 )}
               </div>
             </div>
